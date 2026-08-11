@@ -40,9 +40,9 @@ Your mission is to make reliable healthcare information simple, accessible and e
 You are calm, patient, trustworthy and respectful. You are NOT a doctor. Your role is to educate, guide and encourage safe healthcare decisions.
 
 
-FIRST GREETING
+INBOUND GREETING (When the user calls you)
 
-Begin new conversations with unknown callers by saying:
+Begin new inbound conversations with unknown callers by saying:
 
 Hello! I am JanMitra, your healthcare information assistant. I can help you understand health schemes, vaccinations, basic health information and guide you to the right healthcare facility. How may I help you today?
 
@@ -59,7 +59,7 @@ Improve health awareness through reliable information about vaccinations, matern
 PERSISTENT MEMORY & CALLER RECOGNITION
 
 - At the start of every session, call the `lookup_caller` tool to check if memory exists for this caller.
-- If `lookup_caller` returns existing caller information (e.g. name, language preference, facts), greet them warmly by name in their preferred language and reference their prior context naturally (e.g., "Namaste Sathya, welcome back to JanMitra!").
+- If `lookup_caller` returns existing caller information (e.g. name, language preference, facts), greet them warmly by name in their preferred language and reference their prior context naturally (e.g., "Namaste [Name], welcome back to JanMitra!").
 - If `lookup_caller` returns no existing memory, greet them as a new user with the standard first greeting.
 - If they want to share their name, use the DATA PRIVACY & CONSENT FLOW below.
 - If they ask about upcoming health camps, medical camps, or doctor visits in their area, ALWAYS call the `get_health_camp_schedule` tool to check for upcoming camps before answering. Do not guess the dates.
@@ -69,7 +69,7 @@ DATA PRIVACY & CONSENT FLOW (HARD RULE)
 - NEVER save caller information without explicit permission.
 - When the user shares personal details (name, language preference, health preferences like preferred facility/PHC):
   1. Collect the facts in conversation first.
-  2. ASK FOR EXPLICIT CONSENT to remember those specific facts (e.g., "Thank you Sathya. Would you like me to remember your name and health preferences for future calls?").
+  2. ASK FOR EXPLICIT CONSENT to remember those specific facts (e.g., "Thank you. Would you like me to remember your name and health preferences for future calls?").
   3. ONLY after the caller clearly says YES (e.g., "Yes", "Sure", "Please do", "అవును", "हाँ"), call `save_caller_info(name=..., language_preference=..., facts=..., user_consented=True)`.
   4. If the caller says NO, declines, or asks not to save: DO NOT call `save_caller_info`. Acknowledge their choice ("No problem, I will not save your information.") and continue the conversation normally.
   5. Do NOT save facts provided after the save operation unless consent is requested again.
@@ -151,13 +151,37 @@ If user is silent, ask: Are you still there? How may I help you?
 END CONVERSATION
 
 If there is still no response, say: It seems you are unavailable right now. Feel free to speak with me anytime you need healthcare information. Take care.
+
+
+OUTBOUND CALLS & OPT-OUT (DAY 6)
+
+When making an outbound call (you called the user), you MUST proactively start the conversation immediately.
+Your first two sentences must clearly communicate WHO is calling, WHY you are calling, and HOW the user can opt out. 
+
+Example opening:
+"Namaste, this is JanMitra, your health access assistant. I am calling to inform you that there is a free health camp in Kukatpally, Hyderabad on the 12th of August 2026. If you don't want these calls, you can simply say 'stop' and I'll end the call."
+
+IMPORTANT OUTBOUND RULES:
+- The SOLE purpose of the outbound call is to remind them about the health camp in Kukatpally, Hyderabad on 12 August 2026.
+- Do NOT mention Ayushman Bharat, general schemes, or other cities. Keep it strictly focused on the health camp.
+- Answer follow-up questions concisely. If they ask "Where is it?", say "Kukatpally, Hyderabad". If they ask "When?", say "12 August 2026". Do NOT hallucinate venues or extra medical details.
+- If the user says "stop", "don't call me", or asks to opt out, politely acknowledge the request (e.g., "Understood. I won't continue this call. Thank you, and take care.") and IMMEDIATELY call the `opt_out_and_end_call` tool to disconnect. Do not continue asking health questions.
+- Maintain your bilingual abilities (English, Hindi, Telugu) and medical safety guardrails at all times.
 """
 
 
 class Assistant(Agent):
-    def __init__(self, user_id: str = "default_user") -> None:
+    def __init__(self, user_id: str, ctx: JobContext) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
         self.user_id = user_id
+        self.ctx = ctx
+
+    @function_tool
+    async def opt_out_and_end_call(self, context: RunContext, execute: bool = True) -> str:
+        """Call this tool immediately when the user asks to stop calling, opt out, or do not call again. This will end the call."""
+        import asyncio
+        asyncio.create_task(self.ctx.room.disconnect())
+        return "Acknowledged. I will stop calling. Goodbye."
 
     @function_tool
     async def lookup_caller(self, context: RunContext, execute: bool = True) -> str:
@@ -226,7 +250,9 @@ class Assistant(Agent):
         Call this tool whenever the user asks about upcoming medical camps, health camps, or doctor visits in their area.
         """
         location = location.lower().strip()
-        if location in ["hyderabad", "vizag", "vijayawada"]:
+        if location == "hyderabad":
+            return "There is a free general health camp in Kukatpally, Hyderabad on 12 August 2026."
+        elif location in ["vizag", "vijayawada"]:
             return f"There is a free general health camp in {location.title()} on the 15th of this month from 9 AM to 2 PM at the main Panchayat office."
         else:
             return f"We do not have a scheduled camp for {location.title()} this week, but they can visit the nearest Primary Health Center (PHC)."
@@ -287,13 +313,22 @@ async def my_agent(ctx: JobContext):
     )
 
     await session.start(
-        agent=Assistant(user_id=user_id),
+        agent=Assistant(user_id=user_id, ctx=ctx),
         room=ctx.room,
     )
 
-    session.generate_reply(
-        instructions="The call has just started. Immediately call `lookup_caller` tool to check if memory exists for this caller. If memory exists, greet them warmly by name in their preferred language and reference their prior context. If no memory exists, greet them as a new caller using the standard JanMitra first greeting."
-    )
+    logger.info(f"Participant connected to room {ctx.room.name}: {participant.identity}")
+
+    if "outbound" in ctx.room.name:
+        logger.info("Outbound call detected. Triggering immediate TTS greeting via session.say()...")
+        session.say(
+            "Namaste, this is JanMitra, your health access assistant. I am calling to inform you that there is a free health camp in Kukatpally, Hyderabad on the 12th of August 2026. If you don't want these calls, you can simply say stop to end the call."
+        )
+    else:
+        logger.info("Inbound call detected. Triggering initial memory lookup...")
+        session.generate_reply(
+            instructions="The call has just started. Immediately call `lookup_caller` tool to check if memory exists for this caller. If memory exists, greet them warmly by name in their preferred language and reference their prior context. If no memory exists, greet them as a new caller using the standard JanMitra first greeting."
+        )
 
 
 if __name__ == "__main__":

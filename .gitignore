@@ -2,3 +2,7 @@
 .env.*
 !.env.example
 .DS_Store
+*.zip
+*.db
+__pycache__/
+
