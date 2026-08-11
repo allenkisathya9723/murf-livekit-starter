@@ -165,7 +165,7 @@ IMPORTANT OUTBOUND RULES:
 - The SOLE purpose of the outbound call is to remind them about the health camp in Kukatpally, Hyderabad on 12 August 2026.
 - Do NOT mention Ayushman Bharat, general schemes, or other cities. Keep it strictly focused on the health camp.
 - Answer follow-up questions concisely. If they ask "Where is it?", say "Kukatpally, Hyderabad". If they ask "When?", say "12 August 2026". Do NOT hallucinate venues or extra medical details.
-- If the user says "stop", "don't call me", or asks to opt out, politely acknowledge the request (e.g., "Understood. I won't continue this call. Thank you, and take care.") and IMMEDIATELY call the `opt_out_and_end_call` tool to disconnect. Do not continue asking health questions.
+- HARD OPT-OUT RULE: If the user says "stop", "stop calling me", "don't call me", "end call", or asks to opt out, you MUST call the `opt_out_and_end_call` function tool immediately. Do NOT reply with plain text alone. Do not ask further questions.
 - Maintain your bilingual abilities (English, Hindi, Telugu) and medical safety guardrails at all times.
 """
 
@@ -178,10 +178,20 @@ class Assistant(Agent):
 
     @function_tool
     async def opt_out_and_end_call(self, context: RunContext, execute: bool = True) -> str:
-        """Call this tool immediately when the user asks to stop calling, opt out, or do not call again. This will end the call."""
+        """Call this tool immediately whenever the user says stop, stop calling, don't call me, opt out, or end call. This will disconnect the call."""
         import asyncio
-        asyncio.create_task(self.ctx.room.disconnect())
-        return "Acknowledged. I will stop calling. Goodbye."
+        logger.info("Opt-out tool invoked! Scheduling room disconnect...")
+        
+        async def _delayed_disconnect():
+            await asyncio.sleep(2.0)  # Allow Murf TTS to finish playing the goodbye phrase
+            try:
+                await self.ctx.room.disconnect()
+                logger.info("Room disconnected successfully via opt_out_and_end_call.")
+            except Exception as e:
+                logger.error(f"Error disconnecting room: {e}")
+
+        asyncio.create_task(_delayed_disconnect())
+        return "Understood. I will remove you from our calling list and end this call. Goodbye!"
 
     @function_tool
     async def lookup_caller(self, context: RunContext, execute: bool = True) -> str:
