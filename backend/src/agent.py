@@ -1354,13 +1354,9 @@ async def my_agent(ctx: JobContext):
         logging.getLogger("agent").warning(f"Participant never joined or disconnected: {e}")
         return
 
-    llm_instance = openai.LLM(
-        model="llama-3.3-70b-versatile",
-        client=OpenAIAsyncClient(
-            base_url="https://api.groq.com/openai/v1",
-            api_key=os.getenv("GROQ_API_KEY"),
-            http_client=_http_client,
-        ),
+    llm_instance = google.LLM(
+        model="gemini-3.1-flash-lite",
+        api_key=os.getenv("GOOGLE_API_KEY"),
     )
 
     session = AgentSession(
@@ -1396,10 +1392,22 @@ async def my_agent(ctx: JobContext):
             "Namaste, this is JanMitra, your health access assistant. I am calling to inform you that there is a free health camp in Kukatpally, Hyderabad on the 12th of August 2026. If you don't want these calls, you can simply say stop to end the call."
         )
     else:
-        logger.info("Inbound call detected. Triggering initial memory lookup...")
-        session.generate_reply(
-            instructions="The call has just started. Immediately call `lookup_caller` tool to check if memory exists for this caller. If memory exists, greet them warmly by name in their preferred language and reference their prior context. If no memory exists, greet them as a new caller using the standard JanMitra first greeting."
-        )
+        logger.info("Inbound call detected. Checking caller memory...")
+        user = get_user(user_id)
+        if user and user.get("name"):
+            name = user.get("name")
+            lang = user.get("language_preference", "English")
+            logger.info(f"Existing caller memory found for {name} ({lang}).")
+            if lang == "Hindi":
+                session.say(f"नमस्ते {name}जी, जनमित्र में आपका स्वागत है। मैं आपकी क्या मदद कर सकता हूँ?")
+            elif lang == "Telugu":
+                session.say(f"నమస్కారం {name} గారు, జనమిత్రకి తిరిగి స్వాగతం.")
+            else:
+                session.say(f"Welcome back, {name}! How can I help you today?")
+        else:
+            session.say(
+                "Hello! I am JanMitra, your healthcare information assistant. I can help with health information, healthcare services, vaccinations, and health camps. How can I help you?"
+            )
 
 
 if __name__ == "__main__":
