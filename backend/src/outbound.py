@@ -32,8 +32,10 @@ async def main():
     )
 
     try:
-        # 4. Explicitly create the room and dispatch the agent to it
-        room_name = "voice_assistant_room_outbound"
+        # 4. Explicitly create a unique room and dispatch the agent to it
+        import random
+        import time
+        room_name = f"voice_assistant_room_outbound_{int(time.time())}_{random.randint(100, 999)}"
         await livekit_api.room.create_room(
             api.CreateRoomRequest(
                 name=room_name,

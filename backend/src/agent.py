@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -28,6 +29,12 @@ from database import delete_user, get_user, init_db, save_user
 logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
+
+# Shared background tasks set to prevent Python GC from dropping async tasks
+_background_tasks: set[asyncio.Task] = set()
+
+# Shared HTTP client to avoid connection leaks across sessions
+_http_client = httpx.AsyncClient(verify=False)
 
 
 SYSTEM_PROMPT = """
@@ -180,22 +187,39 @@ class Assistant(Agent):
     async def opt_out_and_end_call(self, context: RunContext, execute: bool = True) -> str:
         """Call this tool immediately whenever the user says stop, stop calling, don't call me, opt out, or end call. This will disconnect the call."""
         import asyncio
-        logger.info("Opt-out tool invoked! Scheduling room disconnect...")
+        from livekit import api
+        logger.info("Opt-out tool invoked! Scheduling room deletion to terminate SIP call on Linphone mobile...")
         
         async def _delayed_disconnect():
-            await asyncio.sleep(2.0)  # Allow Murf TTS to finish playing the goodbye phrase
+            await asyncio.sleep(1.5)  # Allow Murf TTS to finish playing the goodbye phrase
             try:
-                await self.ctx.room.disconnect()
-                logger.info("Room disconnected successfully via opt_out_and_end_call.")
+                # Delete the room via LiveKit Cloud API to trigger SIP BYE so mobile Linphone hangs up
+                lk_api = api.LiveKitAPI(
+                    url=os.getenv("LIVEKIT_URL"),
+                    api_key=os.getenv("LIVEKIT_API_KEY"),
+                    api_secret=os.getenv("LIVEKIT_API_SECRET"),
+                )
+                await lk_api.room.delete_room(api.DeleteRoomRequest(room=self.ctx.room.name))
+                await lk_api.aclose()
+                logger.info(f"Room {self.ctx.room.name} deleted via API. Linphone mobile call terminated.")
             except Exception as e:
-                logger.error(f"Error disconnecting room: {e}")
+                logger.error(f"Error deleting room via API: {e}")
+                try:
+                    await self.ctx.room.disconnect()
+                except Exception:
+                    pass
 
-        asyncio.create_task(_delayed_disconnect())
+        task = asyncio.create_task(_delayed_disconnect())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
         return "Understood. I will remove you from our calling list and end this call. Goodbye!"
 
     @function_tool
     async def lookup_caller(self, context: RunContext, execute: bool = True) -> str:
         """Look up caller memory for the current user ID using persistent database. Call this at the start of the call."""
+        if "outbound" in self.ctx.room.name:
+            return json.dumps({"status": "not_found", "message": "Outbound call, skip memory lookup."})
+
         user = get_user(self.user_id)
         if not user or not user.get("name"):
             return json.dumps(
@@ -305,7 +329,7 @@ async def my_agent(ctx: JobContext):
             client=OpenAIAsyncClient(
                 base_url="https://api.groq.com/openai/v1",
                 api_key=os.getenv("GROQ_API_KEY"),
-                http_client=httpx.AsyncClient(verify=False),
+                http_client=_http_client,
             ),
         ),
         tts=murf.TTS(
