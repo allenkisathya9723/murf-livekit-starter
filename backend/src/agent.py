@@ -209,10 +209,15 @@ class Assistant(Agent):
 
     @function_tool
     async def opt_out_and_end_call(self, context: RunContext, execute: bool = True) -> str:
-        """Call this tool immediately whenever the user says stop, stop calling, don't call me, opt out, or end call. This will disconnect the call."""
+        """Call this tool ONLY on outbound calls when the user explicitly asks to stop receiving phone calls (e.g. 'stop', 'stop calling me', 'don't call me').
+        DO NOT call this tool when the user reports medical symptoms (like difficulty breathing, chest pain, fever) or asks medical questions.
+        """
+        if "outbound" not in self.ctx.room.name:
+            return "Understood. I will not send any unwanted call notifications."
+
         import asyncio
         from livekit import api
-        logger.info("Opt-out tool invoked! Scheduling room deletion to terminate SIP call on Linphone mobile...")
+        logger.info("Opt-out tool invoked on outbound call! Scheduling room deletion to terminate SIP call on Linphone mobile...")
         
         async def _delayed_disconnect():
             await asyncio.sleep(1.5)  # Allow Murf TTS to finish playing the goodbye phrase
