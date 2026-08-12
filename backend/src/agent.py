@@ -1354,17 +1354,14 @@ async def my_agent(ctx: JobContext):
         logging.getLogger("agent").warning(f"Participant never joined or disconnected: {e}")
         return
 
-    if os.getenv("GOOGLE_API_KEY"):
-        llm_instance = google.LLM(model="gemini-2.0-flash")
-    else:
-        llm_instance = openai.LLM(
-            model="llama-3.3-70b-versatile",
-            client=OpenAIAsyncClient(
-                base_url="https://api.groq.com/openai/v1",
-                api_key=os.getenv("GROQ_API_KEY"),
-                http_client=_http_client,
-            ),
-        )
+    llm_instance = openai.LLM(
+        model="llama-3.3-70b-versatile",
+        client=OpenAIAsyncClient(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=os.getenv("GROQ_API_KEY"),
+            http_client=_http_client,
+        ),
+    )
 
     session = AgentSession(
         stt=deepgram.STT(
