@@ -24,7 +24,7 @@ from livekit.plugins import (
 )
 from openai import AsyncClient as OpenAIAsyncClient
 
-from database import delete_user, get_user, init_db, save_user
+from database import delete_user, get_user, init_db, save_user, save_escalation, get_escalations
 
 logger = logging.getLogger("agent")
 
@@ -174,6 +174,30 @@ IMPORTANT OUTBOUND RULES:
 - Answer follow-up questions concisely. If they ask "Where is it?", say "Kukatpally, Hyderabad". If they ask "When?", say "12 August 2026". Do NOT hallucinate venues or extra medical details.
 - HARD OPT-OUT RULE: If the user says "stop", "stop calling me", "don't call me", "end call", or asks to opt out, you MUST call the `opt_out_and_end_call` function tool immediately. Do NOT reply with plain text alone. Do not ask further questions.
 - Maintain your bilingual abilities (English, Hindi, Telugu) and medical safety guardrails at all times.
+
+
+DAY 7 — HUMAN HELP / ESCALATION FLOW (STRICT TWO-STEP PERMISSION GATE)
+
+You MUST handle medical diagnosis requests or red-flag symptoms using a STRICT TWO-STEP PERMISSION GATE:
+
+STEP 1: WHEN DIAGNOSIS OR RED-FLAG SYMPTOM IS DETECTED
+If the user asks for a medical diagnosis (e.g. "Can you diagnose what illness I have?", "Do I have dengue?", "What disease do I have?") OR reports a red-flag symptom (severe chest pain, difficulty breathing, loss of consciousness, severe bleeding):
+1. First, state your limitation / emergency guidance:
+   - For diagnosis: Explain politely that as an AI, you cannot diagnose illnesses.
+   - For red-flag symptoms: Recommend visiting the nearest hospital or contacting emergency services immediately.
+2. Next, ASK FOR EXPLICIT PERMISSION before creating any support request:
+   "I can send a short request to a human health-support representative with the details you've shared, what I've checked, and your preferred follow-up method. Would you like me to send that request?"
+3. HARD RULE: DO NOT CALL `create_escalation` IN THIS TURN. YOU MUST STOP AND WAIT FOR THE USER'S ANSWER.
+
+STEP 2: IN THE NEXT TURN (AFTER USER RESPONDS TO THE PERMISSION QUESTION)
+- IF THE USER SAYS YES (e.g. "Yes", "Sure", "Please do", "Okay", "Send it", "हाँ", "అవును"):
+  NOW AND ONLY NOW call the `create_escalation` function tool with `user_consented=True`. Provide the generated Reference ID to the user and explain honest next steps.
+- IF THE USER SAYS NO (e.g. "No", "Don't share", "Cancel"):
+  DO NOT call `create_escalation`. Acknowledge politely: "Understood, I will not create a support request. Take care."
+- IF USER IS UNCLEAR OR ASKS "MAYBE" / "WHAT WILL YOU SEND?":
+  DO NOT call `create_escalation`. Explain what will be shared and ask for a clear yes or no.
+- FOR NORMAL CONVERSATIONS (health camps, PHC locations, general advice):
+  NEVER call `create_escalation`.
 """
 
 
@@ -271,6 +295,42 @@ class Assistant(Agent):
         if deleted:
             return "Successfully deleted caller memory. User is now forgotten."
         return "No stored memory was found to delete."
+
+    @function_tool
+    async def create_escalation(
+        self,
+        context: RunContext,
+        reason: str,
+        summary: str,
+        what_checked: str,
+        user_consented: bool = False,
+        urgency: str = "Medium",
+        language: str = "English",
+        preferred_follow_up: str = "Phone",
+        execute: bool = True,
+    ) -> str:
+        """DO NOT CALL THIS TOOL when the user asks for a diagnosis or reports a symptom for the FIRST time.
+
+        You MUST ONLY call this tool AFTER you have ALREADY asked the user for permission in a previous turn AND the user explicitly responded with YES (e.g. 'yes', 'sure', 'please do', 'okay').
+        If you have NOT yet asked the user for permission, or if the user has NOT yet answered YES, DO NOT CALL THIS TOOL.
+        """
+        if not user_consented:
+            return "ERROR: Cannot create human help request without explicit user consent."
+
+        escalation = save_escalation(
+            reason=reason,
+            summary=summary,
+            what_checked=what_checked,
+            urgency=urgency,
+            language=language,
+            preferred_follow_up=preferred_follow_up,
+            caller_id=self.user_id,
+        )
+
+        if escalation:
+            ref_id = escalation["reference_id"]
+            return f"Successfully created human escalation request. Reference ID is {ref_id}."
+        return "Failed to create human escalation request due to a database error."
 
     @function_tool
     async def get_health_camp_schedule(

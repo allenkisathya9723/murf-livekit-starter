@@ -48,6 +48,22 @@ def init_db(db_path: Optional[Path | str] = None) -> None:
             );
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS escalations (
+                reference_id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                caller_id TEXT,
+                reason TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                what_checked TEXT NOT NULL,
+                urgency TEXT NOT NULL,
+                language TEXT NOT NULL,
+                preferred_follow_up TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'OPEN'
+            );
+            """
+        )
         conn.commit()
 
 
@@ -168,3 +184,93 @@ def delete_user(user_id: str, db_path: Optional[Path | str] = None) -> bool:
     except Exception as e:
         logger.error(f"Database error in delete_user({user_id}): {e}")
         return False
+
+
+def get_escalation(
+    reference_id: str, db_path: Optional[Path | str] = None
+) -> Optional[dict[str, Any]]:
+    if not reference_id:
+        return None
+
+    try:
+        with get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT reference_id, created_at, caller_id, reason, summary,
+                       what_checked, urgency, language, preferred_follow_up, status
+                FROM escalations WHERE reference_id = ?
+                """,
+                (reference_id,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"Database error in get_escalation({reference_id}): {e}")
+        return None
+
+
+def save_escalation(
+    reason: str,
+    summary: str,
+    what_checked: str,
+    urgency: str = "Medium",
+    language: str = "English",
+    preferred_follow_up: str = "Phone",
+    caller_id: Optional[str] = "default_user",
+    db_path: Optional[Path | str] = None,
+) -> Optional[dict[str, Any]]:
+    import random
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y%m%d")
+    rand_num = random.randint(100, 999)
+    ref_id = f"JM-{date_str}-{rand_num}"
+    created_at = now.isoformat()
+
+    try:
+        with get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO escalations (
+                    reference_id, created_at, caller_id, reason, summary,
+                    what_checked, urgency, language, preferred_follow_up, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ref_id,
+                    created_at,
+                    caller_id or "unknown_caller",
+                    reason,
+                    summary,
+                    what_checked,
+                    urgency,
+                    language,
+                    preferred_follow_up,
+                    "OPEN",
+                ),
+            )
+            conn.commit()
+        return get_escalation(ref_id, db_path=db_path)
+    except Exception as e:
+        logger.error(f"Database error in save_escalation: {e}")
+        return None
+
+
+def get_escalations(db_path: Optional[Path | str] = None) -> list[dict[str, Any]]:
+    try:
+        with get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT reference_id, created_at, caller_id, reason, summary,
+                       what_checked, urgency, language, preferred_follow_up, status
+                FROM escalations ORDER BY created_at DESC
+                """
+            )
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+    except Exception as e:
+        logger.error(f"Database error in get_escalations: {e}")
+        return []
+
