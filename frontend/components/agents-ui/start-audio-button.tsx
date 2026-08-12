@@ -47,7 +47,11 @@ export function StartAudioButton({
   ...props
 }: StartAudioButtonProps) {
   const roomEnsured = useEnsureRoom(room);
-  const { mergedProps } = useStartAudio({ room: roomEnsured, props });
+  const { mergedProps, canPlayAudio } = useStartAudio({ room: roomEnsured, props });
+
+  if (canPlayAudio) {
+    return null;
+  }
 
   return (
     <Button size={size} variant={variant} {...props} {...mergedProps}>

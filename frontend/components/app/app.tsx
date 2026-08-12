@@ -80,7 +80,13 @@ export function App({ appConfig }: AppProps) {
         <ViewController appConfig={appConfig} />
       </main>
 
-      <StartAudioButton label="Start Audio" />
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+        <StartAudioButton
+          label="🔊 Click to Unmute Agent Voice"
+          variant="destructive"
+          className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-full shadow-2xl transition-all flex items-center gap-2 cursor-pointer"
+        />
+      </div>
 
       <Toaster
         icons={{
