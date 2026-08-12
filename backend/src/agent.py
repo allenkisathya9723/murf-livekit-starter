@@ -217,9 +217,6 @@ class Assistant(Agent):
     @function_tool
     async def lookup_caller(self, context: RunContext, execute: bool = True) -> str:
         """Look up caller memory for the current user ID using persistent database. Call this at the start of the call."""
-        if "outbound" in self.ctx.room.name:
-            return json.dumps({"status": "not_found", "message": "Outbound call, skip memory lookup."})
-
         user = get_user(self.user_id)
         if not user or not user.get("name"):
             return json.dumps(
