@@ -198,7 +198,10 @@ If the user asks for a medical diagnosis (e.g. "Can you diagnose what illness I 
 
 STEP 2: IN THE NEXT TURN (AFTER USER RESPONDS TO THE PERMISSION QUESTION)
 - IF THE USER SAYS YES (e.g. "Yes", "Sure", "Please do", "Okay", "Send it", "हाँ", "అవును"):
-  NOW AND ONLY NOW call the `create_escalation` function tool with `user_consented=True`. Provide the generated Reference ID to the user and explain honest next steps.
+  NOW AND ONLY NOW call the `create_escalation` function tool with `user_consented=True`.
+  MANDATORY REQUIREMENT: As soon as `create_escalation` returns, your spoken response MUST explicitly tell the user the generated Reference ID.
+  Example spoken response:
+  "Done. Your request has been created. Your reference ID is [Reference ID]. A human health-support representative will follow up with you."
 - IF THE USER SAYS NO (e.g. "No", "Don't share", "Cancel"):
   DO NOT call `create_escalation`. Acknowledge politely: "Understood, I will not create a support request. Take care."
 - IF USER IS UNCLEAR OR ASKS "MAYBE" / "WHAT WILL YOU SEND?":
@@ -341,7 +344,7 @@ class Assistant(Agent):
 
         if escalation:
             ref_id = escalation["reference_id"]
-            return f"Successfully created human escalation request. Reference ID is {ref_id}."
+            return f"Successfully created human escalation request. The unique Reference ID is {ref_id}. YOU MUST IMMEDIATELY SPEAK THIS EXACT REFERENCE ID TO THE USER in your response (e.g., 'Done. Your request has been created. Your reference ID is {ref_id}.')."
         return "Failed to create human escalation request due to a database error."
 
     @function_tool
