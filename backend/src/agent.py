@@ -1287,10 +1287,10 @@ async def my_agent(ctx: JobContext):
         return
 
     llm_instance = openai.LLM(
-        model="gemini-3.1-flash-lite",
+        model="llama-3.3-70b-versatile",
         client=OpenAIAsyncClient(
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            api_key=os.getenv("GOOGLE_API_KEY"),
+            base_url="https://api.groq.com/openai/v1",
+            api_key=os.getenv("GROQ_API_KEY"),
             http_client=_http_client,
         ),
     )
