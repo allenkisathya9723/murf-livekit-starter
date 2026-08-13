@@ -23,9 +23,10 @@ from livekit.plugins import (
     openai,
     silero,
 )
+from datetime import datetime, timezone
 from openai import AsyncClient as OpenAIAsyncClient
 
-from database import delete_user, get_user, init_db, save_user, save_escalation, get_escalations
+from database import delete_user, get_user, init_db, save_user, save_escalation, get_escalations, record_call_analytics
 
 logger = logging.getLogger("agent")
 
@@ -1111,12 +1112,14 @@ class Assistant(Agent):
         super().__init__(instructions=SYSTEM_PROMPT)
         self.user_id = user_id
         self.ctx = ctx
+        self.is_successful = False
 
     @function_tool
     async def opt_out_and_end_call(self, context: RunContext, execute: bool = True) -> str:
         """Call this tool ONLY on outbound calls when the user explicitly asks to stop receiving phone calls (e.g. 'stop', 'stop calling me', 'don't call me').
         DO NOT call this tool when the user reports medical symptoms (like difficulty breathing, chest pain, fever) or asks medical questions.
         """
+        self.is_successful = True
         if "outbound" not in self.ctx.room.name:
             return "Understood. I will not send any unwanted call notifications."
 
@@ -1195,6 +1198,7 @@ class Assistant(Agent):
             facts=facts,
         )
         if saved:
+            self.is_successful = True
             return f"Successfully saved caller information for {name}."
         return "Failed to save caller information due to a database error."
 
@@ -1203,6 +1207,7 @@ class Assistant(Agent):
         """Delete all stored memory for the current caller when they ask to be forgotten or to clear their data."""
         deleted = delete_user(self.user_id)
         if deleted:
+            self.is_successful = True
             return "Successfully deleted caller memory. User is now forgotten."
         return "No stored memory was found to delete."
 
@@ -1238,6 +1243,7 @@ class Assistant(Agent):
         )
 
         if escalation:
+            self.is_successful = True
             ref_id = escalation["reference_id"]
             return f"Successfully created human escalation request. The unique Reference ID is {ref_id}. YOU MUST IMMEDIATELY SPEAK THIS EXACT REFERENCE ID TO THE USER in your response (e.g., 'Done. Your request has been created. Your reference ID is {ref_id}.')."
         return "Failed to create human escalation request due to a database error."
@@ -1250,6 +1256,7 @@ class Assistant(Agent):
         
         Call this tool whenever the user asks about upcoming medical camps, health camps, or doctor visits in their area.
         """
+        self.is_successful = True
         location = location.lower().strip()
         if location == "hyderabad":
             return "There is a free general health camp in Kukatpally, Hyderabad on 12 August 2026."
@@ -1272,6 +1279,9 @@ server.setup_fnc = prewarm
 
 @server.rtc_session(agent_name="my-agent")
 async def my_agent(ctx: JobContext):
+    started_at_dt = datetime.now(timezone.utc)
+    started_at = started_at_dt.isoformat()
+    channel = "outbound" if "outbound" in ctx.room.name else "browser"
 
     ctx.log_context_fields = {
         "room": ctx.room.name,
@@ -1284,6 +1294,16 @@ async def my_agent(ctx: JobContext):
     except Exception as e:
         import logging
         logging.getLogger("agent").warning(f"Participant never joined or disconnected: {e}")
+        ended_at = datetime.now(timezone.utc).isoformat()
+        record_call_analytics(
+            call_id=ctx.room.name,
+            channel=channel,
+            outcome="FAILED",
+            language="English",
+            duration_seconds=0,
+            started_at=started_at,
+            ended_at=ended_at,
+        )
         return
 
     llm_instance = openai.LLM(
@@ -1309,28 +1329,48 @@ async def my_agent(ctx: JobContext):
         ),
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=False,
-        # Disable AEC warmup. Without this, the pipeline sends
-        # silence frames for 3 seconds before TTS audio arrives,
-        # which causes the webrtc-sys byte-index panic on Windows.
         aec_warmup_duration=0.0,
     )
 
-    await session.start(
-        agent=Assistant(user_id=user_id, ctx=ctx),
-        room=ctx.room,
-    )
+    assistant = Assistant(user_id=user_id, ctx=ctx)
 
-    logger.info(f"Participant connected to room {ctx.room.name}: {participant.identity}")
+    @session.on("agent_speech_committed")
+    def _on_agent_speech(msg):
+        # When agent successfully communicates an answer/response turn, mark call successful
+        assistant.is_successful = True
 
-    if "outbound" in ctx.room.name:
-        logger.info("Outbound call detected. Triggering immediate TTS greeting via session.say()...")
-        session.say(
-            "Namaste, this is JanMitra, your health access assistant. I am calling to inform you that there is a free health camp in Kukatpally, Hyderabad on the 12th of August 2026. If you don't want these calls, you can simply say stop to end the call."
+    try:
+        await session.start(
+            agent=assistant,
+            room=ctx.room,
         )
-    else:
-        logger.info("Inbound call detected. Triggering initial memory lookup...")
-        session.generate_reply(
-            instructions="The call has just started. Immediately call `lookup_caller` tool to check if memory exists for this caller. If memory exists, greet them warmly by name in their preferred language and reference their prior context. If no memory exists, greet them as a new caller using the standard JanMitra first greeting."
+
+        logger.info(f"Participant connected to room {ctx.room.name}: {participant.identity}")
+
+        if "outbound" in ctx.room.name:
+            logger.info("Outbound call detected. Triggering immediate TTS greeting via session.say()...")
+            session.say(
+                "Namaste, this is JanMitra, your health access assistant. I am calling to inform you that there is a free health camp in Kukatpally, Hyderabad on the 12th of August 2026. If you don't want these calls, you can simply say stop to end the call."
+            )
+            assistant.is_successful = True
+        else:
+            logger.info("Inbound call detected. Triggering initial memory lookup...")
+            session.generate_reply(
+                instructions="The call has just started. Immediately call `lookup_caller` tool to check if memory exists for this caller. If memory exists, greet them warmly by name in their preferred language and reference their prior context. If no memory exists, greet them as a new caller using the standard JanMitra first greeting."
+            )
+    finally:
+        ended_at_dt = datetime.now(timezone.utc)
+        ended_at = ended_at_dt.isoformat()
+        duration = int((ended_at_dt - started_at_dt).total_seconds())
+        outcome = "SUCCESS" if assistant.is_successful else "FAILED"
+        record_call_analytics(
+            call_id=ctx.room.name,
+            channel=channel,
+            outcome=outcome,
+            language="English",
+            duration_seconds=duration,
+            started_at=started_at,
+            ended_at=ended_at,
         )
 
 

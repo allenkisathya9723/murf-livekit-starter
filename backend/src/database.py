@@ -59,8 +59,21 @@ def init_db(db_path: Optional[Path | str] = None) -> None:
                 what_checked TEXT NOT NULL,
                 urgency TEXT NOT NULL,
                 language TEXT NOT NULL,
-                preferred_follow_up TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'OPEN'
+            );
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS call_analytics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                call_id TEXT NOT NULL,
+                channel TEXT NOT NULL DEFAULT 'browser',
+                outcome TEXT NOT NULL DEFAULT 'FAILED',
+                language TEXT DEFAULT 'English',
+                duration_seconds INTEGER DEFAULT 0,
+                started_at TEXT NOT NULL,
+                ended_at TEXT NOT NULL
             );
             """
         )
@@ -273,4 +286,73 @@ def get_escalations(db_path: Optional[Path | str] = None) -> list[dict[str, Any]
     except Exception as e:
         logger.error(f"Database error in get_escalations: {e}")
         return []
+
+
+def record_call_analytics(
+    call_id: str,
+    outcome: str = "FAILED",
+    channel: str = "browser",
+    language: str = "English",
+    duration_seconds: int = 0,
+    started_at: Optional[str] = None,
+    ended_at: Optional[str] = None,
+    db_path: Optional[Path | str] = None,
+) -> Optional[dict[str, Any]]:
+    now_iso = datetime.now(timezone.utc).isoformat()
+    started = started_at or now_iso
+    ended = ended_at or now_iso
+    outcome_clean = outcome.upper().strip()
+    if outcome_clean not in ("SUCCESS", "FAILED"):
+        outcome_clean = "FAILED"
+
+    try:
+        with get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO call_analytics (
+                    call_id, channel, outcome, language, duration_seconds, started_at, ended_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (call_id, channel, outcome_clean, language, duration_seconds, started, ended),
+            )
+            conn.commit()
+            record_id = cursor.lastrowid
+            return {
+                "id": record_id,
+                "call_id": call_id,
+                "channel": channel,
+                "outcome": outcome_clean,
+                "language": language,
+                "duration_seconds": duration_seconds,
+                "started_at": started,
+                "ended_at": ended,
+            }
+    except Exception as e:
+        logger.error(f"Database error in record_call_analytics: {e}")
+        return None
+
+
+def get_analytics_summary(db_path: Optional[Path | str] = None) -> dict[str, int]:
+    try:
+        with get_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM call_analytics")
+            total = cursor.fetchone()[0] or 0
+
+            cursor.execute("SELECT COUNT(*) FROM call_analytics WHERE outcome = 'SUCCESS'")
+            successful = cursor.fetchone()[0] or 0
+
+            cursor.execute("SELECT COUNT(*) FROM call_analytics WHERE outcome = 'FAILED'")
+            failed = cursor.fetchone()[0] or 0
+
+            return {
+                "total_calls": total,
+                "successful_calls": successful,
+                "failed_calls": failed,
+            }
+    except Exception as e:
+        logger.error(f"Database error in get_analytics_summary: {e}")
+        return {"total_calls": 0, "successful_calls": 0, "failed_calls": 0}
+
 

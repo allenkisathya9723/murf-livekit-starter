@@ -110,6 +110,12 @@ export default function EscalationsDashboard() {
               🔄 Refresh
             </button>
             <Link
+              href="/analytics"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition-colors border border-slate-700"
+            >
+              📊 Call Analytics
+            </Link>
+            <Link
               href="/"
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-indigo-600/20"
             >
