@@ -30,7 +30,7 @@ export default function AnalyticsDashboard() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/analytics');
+      const res = await fetch(`/api/analytics?t=${Date.now()}`, { cache: 'no-store' });
       const json = await res.json();
       if (res.ok) {
         setData(json);
@@ -54,50 +54,44 @@ export default function AnalyticsDashboard() {
   const getOutcomeBadge = (outcome: string) => {
     const isSuccess = outcome.toUpperCase() === 'SUCCESS';
     return isSuccess ? (
-      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+      <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
         ✓ SUCCESS
       </span>
     ) : (
-      <span className="inline-flex items-center rounded-full bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-400 border border-rose-500/20">
+      <span className="inline-flex items-center rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-400">
         ✗ FAILED
       </span>
     );
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12 font-sans">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <main className="min-h-screen bg-slate-950 p-6 font-sans text-slate-100 md:p-12">
+      <div className="mx-auto max-w-6xl space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+        <div className="flex flex-col justify-between gap-4 border-b border-slate-800 pb-6 md:flex-row md:items-center">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight text-white">
                 JANMITRA CALL ANALYTICS
               </h1>
-              <span className="bg-emerald-500/20 text-emerald-300 text-xs font-mono px-2.5 py-1 rounded-full border border-emerald-500/30">
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2.5 py-1 font-mono text-xs text-emerald-300">
                 Day 8 Real-Time
               </span>
             </div>
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="mt-1 text-sm text-slate-400">
               Real-time call performance metrics powered by janmitra.db
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={fetchAnalytics}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition-colors border border-slate-700 flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700"
             >
               🔄 Refresh
             </button>
             <Link
-              href="/escalations"
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition-colors border border-slate-700"
-            >
-              📋 Day 7 Escalations
-            </Link>
-            <Link
               href="/"
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-indigo-600/20"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-600/20 transition-colors hover:bg-indigo-500"
             >
               ← Back to Agent
             </Link>
@@ -105,51 +99,55 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Primary Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-sm">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">TOTAL CALLS</p>
-            <p className="text-4xl font-extrabold text-white mt-2 font-mono">
-              {loading && !data ? '...' : data?.total_calls ?? 0}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-sm">
+            <p className="text-xs font-bold tracking-wider text-slate-400 uppercase">TOTAL CALLS</p>
+            <p className="mt-2 font-mono text-4xl font-extrabold text-white">
+              {loading && !data ? '...' : (data?.total_calls ?? 0)}
             </p>
-            <p className="text-xs text-slate-500 mt-2">All tracked incoming & outgoing calls</p>
+            <p className="mt-2 text-xs text-slate-500">All tracked incoming & outgoing calls</p>
           </div>
 
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-sm">
-            <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">SUCCESSFUL CALLS</p>
-            <p className="text-4xl font-extrabold text-emerald-400 mt-2 font-mono">
-              {loading && !data ? '...' : data?.successful_calls ?? 0}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-sm">
+            <p className="text-xs font-bold tracking-wider text-emerald-400 uppercase">
+              SUCCESSFUL CALLS
             </p>
-            <p className="text-xs text-slate-500 mt-2">Calls providing safe guidance or escalation</p>
+            <p className="mt-2 font-mono text-4xl font-extrabold text-emerald-400">
+              {loading && !data ? '...' : (data?.successful_calls ?? 0)}
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Calls providing safe guidance or escalation
+            </p>
           </div>
 
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-sm">
-            <p className="text-xs font-bold text-rose-400 uppercase tracking-wider">FAILED CALLS</p>
-            <p className="text-4xl font-extrabold text-rose-400 mt-2 font-mono">
-              {loading && !data ? '...' : data?.failed_calls ?? 0}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-sm">
+            <p className="text-xs font-bold tracking-wider text-rose-400 uppercase">FAILED CALLS</p>
+            <p className="mt-2 font-mono text-4xl font-extrabold text-rose-400">
+              {loading && !data ? '...' : (data?.failed_calls ?? 0)}
             </p>
-            <p className="text-xs text-slate-500 mt-2">Incomplete or disconnected calls</p>
+            <p className="mt-2 text-xs text-slate-500">Incomplete or disconnected calls</p>
           </div>
         </div>
 
         {/* Error State */}
         {error && (
-          <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-6 text-center text-rose-400">
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-6 text-center text-rose-400">
             <p>Error loading analytics: {error}</p>
           </div>
         )}
 
         {/* Recent Call Records */}
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
           <h2 className="text-lg font-bold text-slate-200">Recent Call Logs</h2>
 
           {!data || data.recent_calls.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
+            <div className="py-8 text-center text-slate-500">
               No call records recorded yet in janmitra.db
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-950/80 text-xs uppercase text-slate-400 border-b border-slate-800 font-mono">
+                <thead className="border-b border-slate-800 bg-slate-950/80 font-mono text-xs text-slate-400 uppercase">
                   <tr>
                     <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Room / Call ID</th>
@@ -161,12 +159,16 @@ export default function AnalyticsDashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {data.recent_calls.map((call) => (
-                    <tr key={call.id} className="hover:bg-slate-800/30 transition-colors">
+                    <tr key={call.id} className="transition-colors hover:bg-slate-800/30">
                       <td className="px-4 py-3 font-mono text-xs text-slate-500">#{call.id}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-indigo-300">{call.call_id}</td>
-                      <td className="px-4 py-3 capitalize text-slate-300">{call.channel}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-indigo-300">
+                        {call.call_id}
+                      </td>
+                      <td className="px-4 py-3 text-slate-300 capitalize">{call.channel}</td>
                       <td className="px-4 py-3">{getOutcomeBadge(call.outcome)}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-400">{call.duration_seconds}s</td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-400">
+                        {call.duration_seconds}s
+                      </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-400">
                         {new Date(call.started_at).toLocaleString()}
                       </td>

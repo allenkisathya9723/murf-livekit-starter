@@ -1,21 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { TokenSource } from 'livekit-client';
 import { useSession } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
-
-import type { CSSProperties } from 'react';
 import type { AppConfig } from '@/app-config';
-
 import { AgentSessionProvider } from '@/components/agents-ui/agent-session-provider';
 import { StartAudioButton } from '@/components/agents-ui/start-audio-button';
 import { ViewController } from '@/components/app/view-controller';
 import { Toaster } from '@/components/ui/sonner';
-
 import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useDebugMode } from '@/hooks/useDebug';
-
 import { getSandboxTokenSource } from '@/lib/utils';
 
 const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
@@ -67,9 +63,7 @@ export function App({ appConfig }: AppProps) {
 
   const session = useSession(
     tokenSource,
-    appConfig.agentName
-      ? { agentName: appConfig.agentName }
-      : undefined
+    appConfig.agentName ? { agentName: appConfig.agentName } : undefined
   );
 
   return (
@@ -80,11 +74,11 @@ export function App({ appConfig }: AppProps) {
         <ViewController appConfig={appConfig} />
       </main>
 
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+      <div className="fixed top-6 left-1/2 z-50 -translate-x-1/2">
         <StartAudioButton
           label="🔊 Click to Unmute Agent Voice"
           variant="destructive"
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-full shadow-2xl transition-all flex items-center gap-2 cursor-pointer"
+          className="flex cursor-pointer items-center gap-2 rounded-full bg-indigo-600 px-6 py-3 font-semibold text-white shadow-2xl transition-all hover:bg-indigo-500"
         />
       </div>
 

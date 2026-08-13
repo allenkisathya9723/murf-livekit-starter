@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const dbPath = path.resolve(process.cwd(), '../backend/data/janmitra.db');
     const database = new DatabaseSync(dbPath);
-    
+
     // Ensure table exists in case frontend API is called before backend init
     database.exec(`
       CREATE TABLE IF NOT EXISTS escalations (

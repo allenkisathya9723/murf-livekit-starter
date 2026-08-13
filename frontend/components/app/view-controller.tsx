@@ -4,9 +4,7 @@ import { useState } from 'react';
 import { useTheme } from 'next-themes';
 import { AnimatePresence, motion } from 'motion/react';
 import { useSessionContext } from '@livekit/components-react';
-
 import type { AppConfig } from '@/app-config';
-
 import { AgentSessionView_01 } from '@/components/agents-ui/blocks/agent-session-view-01';
 import { WelcomeView } from '@/components/app/welcome-view';
 
@@ -35,9 +33,7 @@ interface ViewControllerProps {
   appConfig: AppConfig;
 }
 
-export function ViewController({
-  appConfig,
-}: ViewControllerProps) {
+export function ViewController({ appConfig }: ViewControllerProps) {
   const session = useSessionContext();
 
   const { isConnected, start } = session;
@@ -59,10 +55,7 @@ export function ViewController({
     try {
       await start();
     } catch (error) {
-      console.error(
-        'Failed to start JanMitra session:',
-        error
-      );
+      console.error('Failed to start JanMitra session:', error);
 
       // If connection failed, return to the welcome screen.
       setHasStarted(false);
@@ -93,48 +86,20 @@ export function ViewController({
           supportsChatInput={appConfig.supportsChatInput}
           supportsVideoInput={appConfig.supportsVideoInput}
           supportsScreenShare={appConfig.supportsScreenShare}
-          isPreConnectBufferEnabled={
-            appConfig.isPreConnectBufferEnabled
-          }
-
-          audioVisualizerType={
-            appConfig.audioVisualizerType
-          }
-
+          isPreConnectBufferEnabled={appConfig.isPreConnectBufferEnabled}
+          audioVisualizerType={appConfig.audioVisualizerType}
           audioVisualizerColor={
             resolvedTheme === 'dark'
               ? appConfig.audioVisualizerColorDark
               : appConfig.audioVisualizerColor
           }
-
-          audioVisualizerColorShift={
-            appConfig.audioVisualizerColorShift
-          }
-
-          audioVisualizerBarCount={
-            appConfig.audioVisualizerBarCount
-          }
-
-          audioVisualizerGridRowCount={
-            appConfig.audioVisualizerGridRowCount
-          }
-
-          audioVisualizerGridColumnCount={
-            appConfig.audioVisualizerGridColumnCount
-          }
-
-          audioVisualizerRadialBarCount={
-            appConfig.audioVisualizerRadialBarCount
-          }
-
-          audioVisualizerRadialRadius={
-            appConfig.audioVisualizerRadialRadius
-          }
-
-          audioVisualizerWaveLineWidth={
-            appConfig.audioVisualizerWaveLineWidth
-          }
-
+          audioVisualizerColorShift={appConfig.audioVisualizerColorShift}
+          audioVisualizerBarCount={appConfig.audioVisualizerBarCount}
+          audioVisualizerGridRowCount={appConfig.audioVisualizerGridRowCount}
+          audioVisualizerGridColumnCount={appConfig.audioVisualizerGridColumnCount}
+          audioVisualizerRadialBarCount={appConfig.audioVisualizerRadialBarCount}
+          audioVisualizerRadialRadius={appConfig.audioVisualizerRadialRadius}
+          audioVisualizerWaveLineWidth={appConfig.audioVisualizerWaveLineWidth}
           className="fixed inset-0"
         />
       )}

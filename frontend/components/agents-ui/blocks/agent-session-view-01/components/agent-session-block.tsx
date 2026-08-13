@@ -1,31 +1,18 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  AnimatePresence,
-  type MotionProps,
-  motion,
-} from 'motion/react';
-
-import {
-  useAgent,
-  useSessionContext,
-  useSessionMessages,
-} from '@livekit/components-react';
-
+import { Activity } from 'lucide-react';
+import { AnimatePresence, type MotionProps, motion } from 'motion/react';
+import { useAgent, useSessionContext, useSessionMessages } from '@livekit/components-react';
 import { AgentChatTranscript } from '@/components/agents-ui/agent-chat-transcript';
-
 import {
   AgentControlBar,
   type AgentControlBarControls,
 } from '@/components/agents-ui/agent-control-bar';
-
 import { Shimmer } from '@/components/ai-elements/shimmer';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/shadcn/utils';
 import { TileLayout } from './tile-view';
-
-import { Activity } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 const MotionMessage = motion.create(Shimmer);
 
@@ -79,11 +66,7 @@ interface FadeProps {
   className?: string;
 }
 
-export function Fade({
-  top = false,
-  bottom = false,
-  className,
-}: FadeProps) {
+export function Fade({ top = false, bottom = false, className }: FadeProps) {
   return (
     <div
       className={cn(
@@ -172,15 +155,10 @@ export function AgentSessionView_01({
   useEffect(() => {
     const lastMessage = messages.at(-1);
 
-    const lastMessageIsLocal =
-      lastMessage?.from?.isLocal === true;
+    const lastMessageIsLocal = lastMessage?.from?.isLocal === true;
 
-    if (
-      scrollAreaRef.current &&
-      lastMessageIsLocal
-    ) {
-      scrollAreaRef.current.scrollTop =
-        scrollAreaRef.current.scrollHeight;
+    if (scrollAreaRef.current && lastMessageIsLocal) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
 
@@ -204,17 +182,11 @@ export function AgentSessionView_01({
   return (
     <section
       ref={ref}
-      className={cn(
-        'bg-background relative z-10 h-full w-full overflow-hidden',
-        className
-      )}
+      className={cn('bg-background relative z-10 h-full w-full overflow-hidden', className)}
       {...props}
     >
       {/* Top fade */}
-      <Fade
-        top
-        className="absolute inset-x-4 top-0 z-10 h-40"
-      />
+      <Fade top className="absolute inset-x-4 top-0 z-10 h-40" />
 
       {/* Transcript */}
       <div className="absolute top-0 bottom-[135px] flex w-full flex-col md:bottom-[170px]">
@@ -241,21 +213,11 @@ export function AgentSessionView_01({
         audioVisualizerColor={audioVisualizerColor}
         audioVisualizerColorShift={audioVisualizerColorShift}
         audioVisualizerBarCount={audioVisualizerBarCount}
-        audioVisualizerRadialBarCount={
-          audioVisualizerRadialBarCount
-        }
-        audioVisualizerRadialRadius={
-          audioVisualizerRadialRadius
-        }
-        audioVisualizerGridRowCount={
-          audioVisualizerGridRowCount
-        }
-        audioVisualizerGridColumnCount={
-          audioVisualizerGridColumnCount
-        }
-        audioVisualizerWaveLineWidth={
-          audioVisualizerWaveLineWidth
-        }
+        audioVisualizerRadialBarCount={audioVisualizerRadialBarCount}
+        audioVisualizerRadialRadius={audioVisualizerRadialRadius}
+        audioVisualizerGridRowCount={audioVisualizerGridRowCount}
+        audioVisualizerGridColumnCount={audioVisualizerGridColumnCount}
+        audioVisualizerWaveLineWidth={audioVisualizerWaveLineWidth}
       />
 
       {/* Bottom area */}
@@ -280,13 +242,10 @@ export function AgentSessionView_01({
                 opacity: 0,
                 y: -5,
               }}
-              className="flex items-center gap-3 rounded-full border bg-background/80 px-6 py-2.5 shadow-sm backdrop-blur-md"
+              className="bg-background/80 flex items-center gap-3 rounded-full border px-6 py-2.5 shadow-sm backdrop-blur-md"
             >
               {/* CONNECTING */}
-              {(
-                agentState === 'connecting' ||
-                agentState === 'initializing'
-              ) ? (
+              {agentState === 'connecting' || agentState === 'initializing' ? (
                 <>
                   <span className="relative flex h-3 w-3">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
@@ -298,10 +257,8 @@ export function AgentSessionView_01({
                     Connecting...
                   </span>
                 </>
-              )
-
-              /* LISTENING */
-              : agentState === 'listening' ? (
+              ) : /* LISTENING */
+              agentState === 'listening' ? (
                 <>
                   <span className="relative flex h-3 w-3">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -313,10 +270,8 @@ export function AgentSessionView_01({
                     Listening to you...
                   </span>
                 </>
-              )
-
-              /* THINKING */
-              : agentState === 'thinking' ? (
+              ) : /* THINKING */
+              agentState === 'thinking' ? (
                 <>
                   <Activity className="h-4 w-4 animate-spin text-amber-500" />
 
@@ -324,10 +279,8 @@ export function AgentSessionView_01({
                     Thinking...
                   </span>
                 </>
-              )
-
-              /* SPEAKING */
-              : agentState === 'speaking' ? (
+              ) : /* SPEAKING */
+              agentState === 'speaking' ? (
                 <>
                   <div className="flex h-3 items-center gap-1">
                     <span className="h-full w-1 animate-bounce rounded-full bg-emerald-500" />
@@ -341,10 +294,8 @@ export function AgentSessionView_01({
                     Agent is speaking...
                   </span>
                 </>
-              )
-
-              /* CALL ENDED */
-              : !session.isConnected ? (
+              ) : /* CALL ENDED */
+              !session.isConnected ? (
                 <>
                   <span className="relative flex h-3 w-3">
                     <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
@@ -360,15 +311,11 @@ export function AgentSessionView_01({
                     onClick={handleStartAgain}
                     className="ml-2 rounded-full bg-emerald-600 px-4 text-white hover:bg-emerald-700"
                   >
-                    {isRestarting
-                      ? 'Restarting...'
-                      : 'Start Again'}
+                    {isRestarting ? 'Restarting...' : 'Start Again'}
                   </Button>
                 </>
-              )
-
-              /* CONNECTED */
-              : (
+              ) : (
+                /* CONNECTED */
                 <>
                   <span className="relative flex h-3 w-3">
                     <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
@@ -385,10 +332,7 @@ export function AgentSessionView_01({
 
         {/* Controls */}
         <div className="bg-background relative mx-auto max-w-2xl pb-3 md:pb-12">
-          <Fade
-            bottom
-            className="absolute inset-x-0 top-0 h-4 -translate-y-full"
-          />
+          <Fade bottom className="absolute inset-x-0 top-0 h-4 -translate-y-full" />
 
           <AgentControlBar
             variant="livekit"

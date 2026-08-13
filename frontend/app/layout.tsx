@@ -71,10 +71,8 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           enableSystem
           disableTransitionOnChange
         >
-
-
           <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-between p-6 md:flex">
-            <div className="font-bold text-emerald-700 dark:text-emerald-500 tracking-wider text-sm">
+            <div className="text-sm font-bold tracking-wider text-emerald-700 dark:text-emerald-500">
               #VoiceForBharat
             </div>
             <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
@@ -83,7 +81,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 href="https://docs.livekit.io/agents"
-                className="underline underline-offset-4 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
+                className="text-emerald-600 underline underline-offset-4 hover:text-emerald-700 dark:text-emerald-400"
               >
                 LiveKit Agents & Murf AI
               </a>

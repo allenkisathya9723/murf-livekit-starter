@@ -8,7 +8,7 @@ export async function GET() {
   try {
     const dbPath = path.resolve(process.cwd(), '../backend/data/janmitra.db');
     const database = new DatabaseSync(dbPath);
-    
+
     // Ensure table exists in case frontend API is called before backend init
     database.exec(`
       CREATE TABLE IF NOT EXISTS call_analytics (
@@ -26,10 +26,14 @@ export async function GET() {
     const totalStmt = database.prepare('SELECT COUNT(*) AS count FROM call_analytics');
     const totalRow = totalStmt.get() as { count: number };
 
-    const successStmt = database.prepare("SELECT COUNT(*) AS count FROM call_analytics WHERE UPPER(outcome) = 'SUCCESS'");
+    const successStmt = database.prepare(
+      "SELECT COUNT(*) AS count FROM call_analytics WHERE UPPER(outcome) = 'SUCCESS'"
+    );
     const successRow = successStmt.get() as { count: number };
 
-    const failedStmt = database.prepare("SELECT COUNT(*) AS count FROM call_analytics WHERE UPPER(outcome) = 'FAILED'");
+    const failedStmt = database.prepare(
+      "SELECT COUNT(*) AS count FROM call_analytics WHERE UPPER(outcome) = 'FAILED'"
+    );
     const failedRow = failedStmt.get() as { count: number };
 
     const recentStmt = database.prepare(
@@ -43,15 +47,18 @@ export async function GET() {
       total_calls: totalRow?.count || 0,
       successful_calls: successRow?.count || 0,
       failed_calls: failedRow?.count || 0,
-      recent_calls: recentRows || []
+      recent_calls: recentRows || [],
     });
   } catch (error: any) {
-    return NextResponse.json({
-      total_calls: 0,
-      successful_calls: 0,
-      failed_calls: 0,
-      recent_calls: [],
-      error: error.message
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        total_calls: 0,
+        successful_calls: 0,
+        failed_calls: 0,
+        recent_calls: [],
+        error: error.message,
+      },
+      { status: 500 }
+    );
   }
 }
