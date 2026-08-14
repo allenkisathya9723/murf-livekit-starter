@@ -1221,7 +1221,7 @@ class Assistant(Agent):
     @function_tool
     async def lookup_caller(self, context: RunContext, execute: bool = True) -> str:
         """Look up caller memory for the current user ID using persistent database. Call this at the start of the call."""
-        user = get_user(self.user_id)
+        user = await asyncio.to_thread(get_user, self.user_id)
         if not user or not user.get("name"):
             return json.dumps(
                 {
@@ -1258,7 +1258,8 @@ class Assistant(Agent):
                 "ERROR: Cannot save caller information without explicit user consent."
             )
 
-        saved = save_user(
+        saved = await asyncio.to_thread(
+            save_user,
             user_id=self.user_id,
             name=name,
             language_preference=language_preference,
@@ -1272,7 +1273,7 @@ class Assistant(Agent):
     @function_tool
     async def forget_caller(self, context: RunContext, execute: bool = True) -> str:
         """Delete all stored memory for the current caller when they ask to be forgotten or to clear their data."""
-        deleted = delete_user(self.user_id)
+        deleted = await asyncio.to_thread(delete_user, self.user_id)
         if deleted:
             self.is_successful = True
             return "Successfully deleted caller memory. User is now forgotten."
@@ -1301,7 +1302,8 @@ class Assistant(Agent):
                 "ERROR: Cannot create human help request without explicit user consent."
             )
 
-        escalation = save_escalation(
+        escalation = await asyncio.to_thread(
+            save_escalation,
             reason=reason,
             summary=summary,
             what_checked=what_checked,
@@ -1506,7 +1508,8 @@ async def my_agent(ctx: JobContext):
         ended_at = ended_at_dt.isoformat()
         duration = int((ended_at_dt - started_at_dt).total_seconds())
         outcome = "SUCCESS" if assistant.is_successful else "FAILED"
-        record_call_analytics(
+        await asyncio.to_thread(
+            record_call_analytics,
             call_id=ctx.room.name,
             channel=channel,
             outcome=outcome,
