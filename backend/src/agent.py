@@ -1431,11 +1431,10 @@ async def my_agent(ctx: JobContext):
 
     openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
     if openrouter_api_key:
-        logger.info(
-            "Initializing OpenRouter LLM (meta-llama/llama-3.3-70b-instruct)..."
-        )
+        model_name = os.getenv("OPENROUTER_MODEL", "openrouter/free")
+        logger.info(f"Initializing OpenRouter LLM ({model_name})...")
         llm_instance = openai.LLM.with_openrouter(
-            model="meta-llama/llama-3.3-70b-instruct",
+            model=model_name,
             api_key=openrouter_api_key,
         )
     else:
@@ -1474,10 +1473,14 @@ async def my_agent(ctx: JobContext):
         assistant.is_successful = True
 
     try:
-        await session.start(
-            agent=assistant,
-            room=ctx.room,
+        start_task = asyncio.create_task(
+            session.start(
+                agent=assistant,
+                room=ctx.room,
+            )
         )
+
+        await asyncio.sleep(0.1)
 
         logger.info(
             f"Participant connected to room {ctx.room.name}: {participant.identity}"
@@ -1496,6 +1499,8 @@ async def my_agent(ctx: JobContext):
             session.generate_reply(
                 instructions="The call has just started. Immediately call `lookup_caller` tool to check if memory exists for this caller. If memory exists, greet them warmly by name in their preferred language and reference their prior context. If no memory exists, greet them as a new caller using the standard JanMitra first greeting."
             )
+
+        await start_task
     finally:
         ended_at_dt = datetime.now(timezone.utc)
         ended_at = ended_at_dt.isoformat()
