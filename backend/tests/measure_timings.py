@@ -46,5 +46,6 @@ async def main():
     print(f"2. Database initialization time: {timings['db_init_ms']:.2f} ms")
     print(f"3. lookup_caller execution time: {timings['lookup_caller_ms']:.2f} ms")
 
+
 if __name__ == "__main__":
     asyncio.run(main())

@@ -11,6 +11,7 @@ from agent import Assistant
 
 load_dotenv(".env.local")
 
+
 async def measure_pipeline():
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
@@ -44,9 +45,14 @@ async def measure_pipeline():
 
     print("=== LIVE PIPELINE BENCHMARK TIMINGS ===")
     print("4. STT (Deepgram Nova-3 streaming transcription latency): ~150 - 250 ms")
-    print(f"5. Transcription -> LLM response time (Groq llama-3.1-8b): {llm_duration_ms:.2f} ms")
+    print(
+        f"5. Transcription -> LLM response time (Groq llama-3.1-8b): {llm_duration_ms:.2f} ms"
+    )
     print("6. LLM response -> first Murf audio chunk: ~200 - 350 ms")
-    print(f"7. Total User speech -> first audible response: {(200 + llm_duration_ms + 250):.2f} ms (~{((200 + llm_duration_ms + 250)/1000.0):.2f} seconds)")
+    print(
+        f"7. Total User speech -> first audible response: {(200 + llm_duration_ms + 250):.2f} ms (~{((200 + llm_duration_ms + 250) / 1000.0):.2f} seconds)"
+    )
+
 
 if __name__ == "__main__":
     asyncio.run(measure_pipeline())

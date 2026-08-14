@@ -7,11 +7,17 @@ from pathlib import Path
 src_dir = Path(__file__).resolve().parent.parent / "src"
 sys.path.insert(0, str(src_dir))
 
-from database import init_db, save_escalation, get_escalations, get_escalation, DEFAULT_DB_PATH
+from database import (
+    init_db,
+    save_escalation,
+    get_escalations,
+    get_escalation,
+    DEFAULT_DB_PATH,
+)
 from agent import Assistant
 
-class TestDay7Escalations(unittest.TestCase):
 
+class TestDay7Escalations(unittest.TestCase):
     def setUp(self):
         init_db()
 
@@ -24,7 +30,7 @@ class TestDay7Escalations(unittest.TestCase):
             urgency="Medium",
             language="English",
             preferred_follow_up="Phone",
-            caller_id="test_caller_123"
+            caller_id="test_caller_123",
         )
         self.assertIsNotNone(res)
         self.assertTrue(res["reference_id"].startswith("JM-"))
@@ -42,6 +48,7 @@ class TestDay7Escalations(unittest.TestCase):
         assistant = Assistant(user_id="test_user_consent", ctx=None)
         # Call tool with permission
         import asyncio
+
         result = asyncio.run(
             assistant.create_escalation(
                 context=None,
@@ -50,7 +57,7 @@ class TestDay7Escalations(unittest.TestCase):
                 what_checked="Advised emergency hospital visit immediately.",
                 user_consented=True,
                 urgency="Critical",
-                language="English"
+                language="English",
             )
         )
         self.assertIn("Successfully created human escalation request", result)
@@ -60,16 +67,21 @@ class TestDay7Escalations(unittest.TestCase):
         """Test tool execution when user_consented=False"""
         assistant = Assistant(user_id="test_user_no_consent", ctx=None)
         import asyncio
+
         result = asyncio.run(
             assistant.create_escalation(
                 context=None,
                 reason="Diagnosis requested",
                 summary="User asked for diagnosis.",
                 what_checked="Refused diagnosis.",
-                user_consented=False
+                user_consented=False,
             )
         )
-        self.assertIn("ERROR: Cannot create human help request without explicit user consent", result)
+        self.assertIn(
+            "ERROR: Cannot create human help request without explicit user consent",
+            result,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

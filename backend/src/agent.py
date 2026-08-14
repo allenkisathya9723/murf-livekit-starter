@@ -26,7 +26,15 @@ from livekit.plugins import (
 from datetime import datetime, timezone
 from openai import AsyncClient as OpenAIAsyncClient
 
-from database import delete_user, get_user, init_db, save_user, save_escalation, get_escalations, record_call_analytics
+from database import (
+    delete_user,
+    get_user,
+    init_db,
+    save_user,
+    save_escalation,
+    get_escalations,
+    record_call_analytics,
+)
 
 logger = logging.getLogger("agent")
 
@@ -1107,6 +1115,54 @@ ALWAYS:
 - keep responses short, clear, and natural"""
 
 
+SPECIALIST_SYSTEM_PROMPT = """
+==================================================
+JANMITRA — CLINIC & APPOINTMENT SPECIALIST
+==================================================
+
+You are JanMitra's Clinic and Appointment Specialist for VoiceForBharat Health Access.
+Your sole focus is to assist users with clinic and appointment-related enquiries.
+
+==================================================
+RESPONSIBILITIES
+==================================================
+- Assist users with clinic appointment enquiries.
+- Understand what type of appointment or health check-up the user needs.
+- Explain appointment-related processes clearly.
+- Collect basic appointment preferences (e.g. preferred facility type, day/time preference) when appropriate.
+- Guide the user on what details or documents may be required when visiting a clinic or primary health center.
+- Provide safe next steps for booking/visiting a clinic.
+
+==================================================
+LIMITATIONS & SAFETY RULES
+==================================================
+- NEVER diagnose diseases or medical conditions.
+- NEVER prescribe medications, treatments, or dosages.
+- NEVER claim to be a doctor or medical practitioner.
+- NEVER make unsupported medical claims.
+- NEVER invent clinic availability, doctors, appointment slots, or booking confirmation numbers if no real data exists in the project.
+- For emergency or severe red-flag symptoms (e.g. severe chest pain, extreme shortness of breath, heavy bleeding), direct the user to urgent emergency care.
+
+==================================================
+MULTILINGUAL & CONVERSATIONAL STYLE
+==================================================
+- Respond in the user's preferred language.
+  - English -> English
+  - Hindi -> Hindi in Devanagari script
+  - Telugu -> Telugu in Telugu script
+- Keep responses short, concise, empathetic, and natural.
+- Acknowledge the user's previous request directly from context without asking them to repeat themselves.
+"""
+
+
+class ClinicAppointmentSpecialist(Agent):
+    def __init__(self, user_id: str, ctx: JobContext) -> None:
+        super().__init__(instructions=SPECIALIST_SYSTEM_PROMPT)
+        self.user_id = user_id
+        self.ctx = ctx
+        self.is_successful = True
+
+
 class Assistant(Agent):
     def __init__(self, user_id: str, ctx: JobContext) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
@@ -1115,7 +1171,9 @@ class Assistant(Agent):
         self.is_successful = False
 
     @function_tool
-    async def opt_out_and_end_call(self, context: RunContext, execute: bool = True) -> str:
+    async def opt_out_and_end_call(
+        self, context: RunContext, execute: bool = True
+    ) -> str:
         """Call this tool ONLY on outbound calls when the user explicitly asks to stop receiving phone calls (e.g. 'stop', 'stop calling me', 'don't call me').
         DO NOT call this tool when the user reports medical symptoms (like difficulty breathing, chest pain, fever) or asks medical questions.
         """
@@ -1125,10 +1183,15 @@ class Assistant(Agent):
 
         import asyncio
         from livekit import api
-        logger.info("Opt-out tool invoked on outbound call! Scheduling room deletion to terminate SIP call on Linphone mobile...")
-        
+
+        logger.info(
+            "Opt-out tool invoked on outbound call! Scheduling room deletion to terminate SIP call on Linphone mobile..."
+        )
+
         async def _delayed_disconnect():
-            await asyncio.sleep(1.5)  # Allow Murf TTS to finish playing the goodbye phrase
+            await asyncio.sleep(
+                1.5
+            )  # Allow Murf TTS to finish playing the goodbye phrase
             try:
                 # Delete the room via LiveKit Cloud API to trigger SIP BYE so mobile Linphone hangs up
                 lk_api = api.LiveKitAPI(
@@ -1136,9 +1199,13 @@ class Assistant(Agent):
                     api_key=os.getenv("LIVEKIT_API_KEY"),
                     api_secret=os.getenv("LIVEKIT_API_SECRET"),
                 )
-                await lk_api.room.delete_room(api.DeleteRoomRequest(room=self.ctx.room.name))
+                await lk_api.room.delete_room(
+                    api.DeleteRoomRequest(room=self.ctx.room.name)
+                )
                 await lk_api.aclose()
-                logger.info(f"Room {self.ctx.room.name} deleted via API. Linphone mobile call terminated.")
+                logger.info(
+                    f"Room {self.ctx.room.name} deleted via API. Linphone mobile call terminated."
+                )
             except Exception as e:
                 logger.error(f"Error deleting room via API: {e}")
                 try:
@@ -1230,7 +1297,9 @@ class Assistant(Agent):
         If you have NOT yet asked the user for permission, or if the user has NOT yet answered YES, DO NOT CALL THIS TOOL.
         """
         if not user_consented:
-            return "ERROR: Cannot create human help request without explicit user consent."
+            return (
+                "ERROR: Cannot create human help request without explicit user consent."
+            )
 
         escalation = save_escalation(
             reason=reason,
@@ -1253,7 +1322,7 @@ class Assistant(Agent):
         self, context: RunContext, location: str, execute: bool = True
     ) -> str:
         """Get the upcoming free health camp dates for a given location or village.
-        
+
         Call this tool whenever the user asks about upcoming medical camps, health camps, or doctor visits in their area.
         """
         self.is_successful = True
@@ -1264,6 +1333,47 @@ class Assistant(Agent):
             return f"There is a free general health camp in {location.title()} on the 15th of this month from 9 AM to 2 PM at the main Panchayat office."
         else:
             return f"We do not have a scheduled camp for {location.title()} this week, but they can visit the nearest Primary Health Center (PHC)."
+
+    @function_tool
+    async def transfer_to_clinic_specialist(
+        self, context: RunContext, execute: bool = True
+    ) -> str:
+        """Use this tool ONLY when the user's current request specifically requires clinic or appointment assistance.
+
+        Use it for requests such as:
+        - "I want to book an appointment."
+        - "I need help with a clinic appointment."
+        - "Can you help me schedule a clinic visit?"
+        - "I want to know about appointment availability."
+        - "I need an appointment for a general health check-up."
+        - "Can you help me with a clinic visit?"
+
+        Do NOT use this tool for:
+        - general health questions
+        - health-camp questions
+        - fever/cold questions
+        - general self-care
+        - disease information
+        - diagnosis requests
+        - emergency/red-flag symptoms
+        - Day 7 human escalation situations
+        - normal conversation
+        - unrelated requests
+        """
+        self.is_successful = True
+        try:
+            context.session.say(
+                "I'll connect you to our clinic and appointment specialist."
+            )
+            specialist = ClinicAppointmentSpecialist(user_id=self.user_id, ctx=self.ctx)
+            context.session.update_agent(specialist)
+            context.session.generate_reply(
+                instructions="The user was just transferred to you for clinic and appointment assistance. Acknowledge their specific appointment request from the conversation context and introduce yourself as JanMitra's clinic and appointment specialist in a brief, helpful manner in the user's language."
+            )
+            return "Transferred control to ClinicAppointmentSpecialist."
+        except Exception as e:
+            logger.error(f"Error during handoff to specialist: {e}")
+            return "I'm unable to connect you to the clinic specialist right now, but I can still help with general information."
 
 
 server = AgentServer()
@@ -1293,7 +1403,10 @@ async def my_agent(ctx: JobContext):
         user_id = participant.identity if participant else "default_user"
     except Exception as e:
         import logging
-        logging.getLogger("agent").warning(f"Participant never joined or disconnected: {e}")
+
+        logging.getLogger("agent").warning(
+            f"Participant never joined or disconnected: {e}"
+        )
         ended_at = datetime.now(timezone.utc).isoformat()
         record_call_analytics(
             call_id=ctx.room.name,
@@ -1318,7 +1431,7 @@ async def my_agent(ctx: JobContext):
     session = AgentSession(
         stt=deepgram.STT(
             model="nova-3",
-            language="multi",
+            language="en",
         ),
         llm=llm_instance,
         tts=murf.TTS(
@@ -1345,10 +1458,14 @@ async def my_agent(ctx: JobContext):
             room=ctx.room,
         )
 
-        logger.info(f"Participant connected to room {ctx.room.name}: {participant.identity}")
+        logger.info(
+            f"Participant connected to room {ctx.room.name}: {participant.identity}"
+        )
 
         if "outbound" in ctx.room.name:
-            logger.info("Outbound call detected. Triggering immediate TTS greeting via session.say()...")
+            logger.info(
+                "Outbound call detected. Triggering immediate TTS greeting via session.say()..."
+            )
             session.say(
                 "Namaste, this is JanMitra, your health access assistant. I am calling to inform you that there is a free health camp in Kukatpally, Hyderabad on the 12th of August 2026. If you don't want these calls, you can simply say stop to end the call."
             )

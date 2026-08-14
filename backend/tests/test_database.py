@@ -86,7 +86,10 @@ class TestJsonSerialization:
             test_db = Path(temp_dir) / "test.db"
             init_db(test_db)
 
-            facts = {"preferred_facility": "PHC", "topics": ["vaccination", "nutrition"]}
+            facts = {
+                "preferred_facility": "PHC",
+                "topics": ["vaccination", "nutrition"],
+            }
             save_user(
                 user_id="json_user",
                 name="Test",

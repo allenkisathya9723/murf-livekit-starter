@@ -8,7 +8,12 @@ from pathlib import Path
 src_dir = Path(__file__).resolve().parent.parent / "src"
 sys.path.insert(0, str(src_dir))
 
-from database import init_db, record_call_analytics, get_analytics_summary, get_connection
+from database import (
+    init_db,
+    record_call_analytics,
+    get_analytics_summary,
+    get_connection,
+)
 
 
 class TestDay8Analytics(unittest.TestCase):
@@ -58,7 +63,9 @@ class TestDay8Analytics(unittest.TestCase):
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM call_analytics")
             sql_total = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM call_analytics WHERE outcome='SUCCESS'")
+            cursor.execute(
+                "SELECT COUNT(*) FROM call_analytics WHERE outcome='SUCCESS'"
+            )
             sql_success = cursor.fetchone()[0]
             cursor.execute("SELECT COUNT(*) FROM call_analytics WHERE outcome='FAILED'")
             sql_failed = cursor.fetchone()[0]

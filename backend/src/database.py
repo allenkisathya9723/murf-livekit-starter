@@ -234,6 +234,7 @@ def save_escalation(
     db_path: Optional[Path | str] = None,
 ) -> Optional[dict[str, Any]]:
     import random
+
     now = datetime.now(timezone.utc)
     date_str = now.strftime("%Y%m%d")
     rand_num = random.randint(100, 999)
@@ -314,7 +315,15 @@ def record_call_analytics(
                     call_id, channel, outcome, language, duration_seconds, started_at, ended_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (call_id, channel, outcome_clean, language, duration_seconds, started, ended),
+                (
+                    call_id,
+                    channel,
+                    outcome_clean,
+                    language,
+                    duration_seconds,
+                    started,
+                    ended,
+                ),
             )
             conn.commit()
             record_id = cursor.lastrowid
@@ -340,10 +349,14 @@ def get_analytics_summary(db_path: Optional[Path | str] = None) -> dict[str, int
             cursor.execute("SELECT COUNT(*) FROM call_analytics")
             total = cursor.fetchone()[0] or 0
 
-            cursor.execute("SELECT COUNT(*) FROM call_analytics WHERE outcome = 'SUCCESS'")
+            cursor.execute(
+                "SELECT COUNT(*) FROM call_analytics WHERE outcome = 'SUCCESS'"
+            )
             successful = cursor.fetchone()[0] or 0
 
-            cursor.execute("SELECT COUNT(*) FROM call_analytics WHERE outcome = 'FAILED'")
+            cursor.execute(
+                "SELECT COUNT(*) FROM call_analytics WHERE outcome = 'FAILED'"
+            )
             failed = cursor.fetchone()[0] or 0
 
             return {
@@ -354,5 +367,3 @@ def get_analytics_summary(db_path: Optional[Path | str] = None) -> dict[str, int
     except Exception as e:
         logger.error(f"Database error in get_analytics_summary: {e}")
         return {"total_calls": 0, "successful_calls": 0, "failed_calls": 0}
-
-
