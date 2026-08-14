@@ -1362,11 +1362,15 @@ class Assistant(Agent):
         """
         self.is_successful = True
         try:
-            context.session.say(
+            logger.info("[HANDOFF] Main -> ClinicAppointmentSpecialist: Speaking handoff announcement...")
+            handle = context.session.say(
                 "I'll connect you to our clinic and appointment specialist."
             )
+            await handle.wait_for_playout()
+            logger.info("[HANDOFF] Handoff announcement playout completed. Switching active agent...")
             specialist = ClinicAppointmentSpecialist(user_id=self.user_id, ctx=self.ctx)
             context.session.update_agent(specialist)
+            logger.info("[HANDOFF] Context preserved. Generating specialist greeting...")
             context.session.generate_reply(
                 instructions="The user was just transferred to you for clinic and appointment assistance. Acknowledge their specific appointment request from the conversation context and introduce yourself as JanMitra's clinic and appointment specialist in a brief, helpful manner in the user's language."
             )
