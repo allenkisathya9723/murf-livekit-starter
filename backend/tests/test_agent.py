@@ -2,6 +2,7 @@ import pytest
 from livekit.agents import AgentSession, inference, llm
 
 from agent import Assistant
+from unittest.mock import MagicMock
 
 
 def _llm() -> llm.LLM:
@@ -15,7 +16,7 @@ async def test_offers_assistance() -> None:
         _llm() as llm,
         AgentSession(llm=llm) as session,
     ):
-        await session.start(Assistant())
+        await session.start(Assistant(user_id="test_user", ctx=MagicMock()))
 
         # Run an agent turn following the user's greeting
         result = await session.run(user_input="Hello")
@@ -47,7 +48,7 @@ async def test_grounding() -> None:
         _llm() as llm,
         AgentSession(llm=llm) as session,
     ):
-        await session.start(Assistant())
+        await session.start(Assistant(user_id="test_user", ctx=MagicMock()))
 
         # Run an agent turn following the user's request for information about their birth city (not known by the agent)
         result = await session.run(user_input="What city was I born in?")
@@ -89,7 +90,7 @@ async def test_refuses_harmful_request() -> None:
         _llm() as llm,
         AgentSession(llm=llm) as session,
     ):
-        await session.start(Assistant())
+        await session.start(Assistant(user_id="test_user", ctx=MagicMock()))
 
         # Run an agent turn following an inappropriate request from the user
         result = await session.run(

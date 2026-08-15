@@ -1,7 +1,7 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -37,7 +37,7 @@ async def test_lookup_existing_caller():
             db_path=test_db,
         )
 
-        assistant = Assistant(user_id="existing_user")
+        assistant = Assistant(user_id="existing_user", ctx=MagicMock())
         p1, p2, p3 = _patch_db(test_db)
         with p1, p2, p3:
             res = await assistant.lookup_caller(context=None)
@@ -55,7 +55,7 @@ async def test_lookup_missing_caller():
         test_db = Path(temp_dir) / "test.db"
         init_db(test_db)
 
-        assistant = Assistant(user_id="unknown_user")
+        assistant = Assistant(user_id="unknown_user", ctx=MagicMock())
         p1, p2, p3 = _patch_db(test_db)
         with p1, p2, p3:
             res = await assistant.lookup_caller(context=None)
@@ -70,7 +70,7 @@ async def test_save_without_consent_refused():
         test_db = Path(temp_dir) / "test.db"
         init_db(test_db)
 
-        assistant = Assistant(user_id="no_consent_user")
+        assistant = Assistant(user_id="no_consent_user", ctx=MagicMock())
         p1, p2, p3 = _patch_db(test_db)
         with p1, p2, p3:
             res = await assistant.save_caller_info(
@@ -93,7 +93,7 @@ async def test_save_with_default_consent_refused():
         test_db = Path(temp_dir) / "test.db"
         init_db(test_db)
 
-        assistant = Assistant(user_id="default_consent_user")
+        assistant = Assistant(user_id="default_consent_user", ctx=MagicMock())
         p1, p2, p3 = _patch_db(test_db)
         with p1, p2, p3:
             # Call without user_consented — should default to False
@@ -115,7 +115,7 @@ async def test_save_with_consent_succeeds():
         test_db = Path(temp_dir) / "test.db"
         init_db(test_db)
 
-        assistant = Assistant(user_id="consent_user")
+        assistant = Assistant(user_id="consent_user", ctx=MagicMock())
         p1, p2, p3 = _patch_db(test_db)
         with p1, p2, p3:
             res = await assistant.save_caller_info(
@@ -147,7 +147,7 @@ async def test_forget_caller_deletes():
             db_path=test_db,
         )
 
-        assistant = Assistant(user_id="forget_user")
+        assistant = Assistant(user_id="forget_user", ctx=MagicMock())
         p1, p2, p3 = _patch_db(test_db)
         with p1, p2, p3:
             res = await assistant.forget_caller(context=None)
@@ -168,7 +168,7 @@ async def test_full_consent_lifecycle():
         init_db(test_db)
 
         # 1. New caller
-        assistant1 = Assistant(user_id="lifecycle_user")
+        assistant1 = Assistant(user_id="lifecycle_user", ctx=MagicMock())
         p1, p2, p3 = _patch_db(test_db)
         with p1, p2, p3:
             lookup1 = await assistant1.lookup_caller(context=None)
@@ -196,7 +196,7 @@ async def test_full_consent_lifecycle():
             assert "Successfully saved" in consent
 
         # 4. Returning caller (simulate backend restart)
-        assistant2 = Assistant(user_id="lifecycle_user")
+        assistant2 = Assistant(user_id="lifecycle_user", ctx=MagicMock())
         with p1, p2, p3:
             lookup2 = await assistant2.lookup_caller(context=None)
             data2 = json.loads(lookup2)
