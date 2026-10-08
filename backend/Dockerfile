@@ -52,6 +52,7 @@ RUN uv run "src/agent.py" download-files
 # --- Production stage ---
 # Build tools (gcc, g++, python3-dev) are not included in the final image
 FROM base
+WORKDIR /app
 
 # Create a non-privileged user that the app will run under.
 # See https://docs.docker.com/build/building/best-practices/#user
@@ -75,4 +76,4 @@ USER appuser
 # Run the AgentServer using UV
 # UV will activate the virtual environment and run the agent.
 # The "start" command tells the AgentServer to connect to LiveKit and begin waiting for jobs.
-CMD ["uv", "run", "src/agent.py", "start"]
+CMD ["uv", "run", "python", "src/agent.py", "start"]
